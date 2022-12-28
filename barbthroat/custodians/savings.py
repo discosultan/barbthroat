@@ -1,8 +1,9 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Callable, Dict, Optional
+from typing import Dict, Optional
 
+from barbthroat import hummingbot
 from barbthroat.connectors import Connector
 from barbthroat.models import SavingsProduct
 
@@ -23,10 +24,10 @@ class SavingsCustodian:
     def __init__(
         self,
         connectors: Dict[str, Connector],
-        get_available_balance: Callable[[str, str], Decimal],
+        hummingbot_connectors: Dict[str, hummingbot.Connector],
     ) -> None:
         self._connectors = connectors
-        self._get_available_balance = get_available_balance
+        self._hummingbot_connectors = hummingbot_connectors
 
     def to_savings_asset(self, asset: str) -> str:
         return (
@@ -48,7 +49,9 @@ class SavingsCustodian:
             return
 
         savings_asset = self.to_savings_asset(asset)
-        savings_amount = self._get_available_balance(connector_name, savings_asset)
+        savings_amount = self._hummingbot_connectors[connector_name].get_available_balance(
+            savings_asset
+        )
         if savings_amount == 0:
             _log.info("Nothing to redeem; savings balance 0.")
             return
@@ -109,7 +112,9 @@ class SavingsCustodian:
     ) -> None:
         while True:
             # TODO: Ideally we listened to websocket updates instead of polling the wallet.
-            available_amount = self._get_available_balance(connector_name, asset)
+            available_amount = self._hummingbot_connectors[connector_name].get_available_balance(
+                asset
+            )
             if available_amount >= amount:
                 return
             await asyncio.sleep(100)
